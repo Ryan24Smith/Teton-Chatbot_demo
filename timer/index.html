@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Session Timer">
+<meta name="theme-color" content="#000000">
+<title>Session Timer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;color:#fff;overflow:hidden;font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#app{height:100%;display:flex;flex-direction:column;gap:2vh;padding:calc(env(safe-area-inset-top) + 1.5vh) calc(env(safe-area-inset-right) + 4vw) calc(env(safe-area-inset-bottom) + 2vh) calc(env(safe-area-inset-left) + 4vw)}
+.lbl{font-size:3.6vw;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.panel{border-radius:4vw;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;color:#000;padding:1vh 2vw}
+.panel.yellow{background:#FFD400;color:#000}
+.panel.red{background:#D00000;color:#fff}
+.digits{font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+#total{flex:0 0 auto;padding:1.2vh 2vw}
+#total .digits{font-size:18vw}
+#sec{flex:1 1 auto;min-height:0}
+#sec .digits{font-size:30vw}
+#hdr{text-align:center}
+#name{font-size:5.4vw;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#next{font-size:3.8vw;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.4vh}
+#pace{font-size:3.6vw;opacity:.6;text-align:center;min-height:1.2em}
+#ctrl{display:flex;align-items:stretch;justify-content:space-between;gap:6vw;flex:0 0 auto}
+button{font:inherit;font-weight:800;border:0;border-radius:4vw;color:#fff;background:#333}
+#back{flex:0 0 20vw;font-size:4vw;height:11vh;background:#2a2a2a;color:#bbb}
+#pause{flex:0 0 22vw;font-size:4vw;height:11vh;background:#444}
+#nextb{flex:1 1 auto;font-size:7vw;height:11vh;background:#1565C0}
+#start{width:100%;height:13vh;font-size:9vw;background:#1B8A3A}
+.hide{display:none!important}
+#reset{position:absolute;right:calc(env(safe-area-inset-right) + 3vw);top:calc(env(safe-area-inset-top) + 1vh);font-size:3vw;background:none;color:#555;padding:1vw 2vw}
+</style></head><body>
+<div id="app">
+ <div class="lbl" style="text-align:center">Total</div>
+ <div id="total" class="panel"><div class="digits" id="td">90:00</div></div>
+ <div id="hdr"><div id="name">Ready</div><div id="next"></div></div>
+ <div id="sec" class="panel"><div class="digits" id="sd">3:00</div></div>
+ <div id="pace"></div>
+ <div id="ctrl">
+  <button id="start">Start</button>
+  <button id="back" class="hide">Back</button>
+  <button id="pause" class="hide">Pause</button>
+  <button id="nextb" class="hide">Next</button>
+ </div>
+</div>
+<button id="reset" class="hide">Reset</button>
+<script>
+var SECTIONS=[["Welcome and intro",3],["What you'll walk out with",2],["Warm-up quiz",5],["What you told me",3],["How today works",2],["Ground rules",8],["How to ask",7],["Hands-on 1: Your inbox",15],["Hands-on 2: What you have to read",12],["Hands-on 3: What you have to send",8],["Hands-on 4: Build your own agent",15],["What's next",5],["Wrap-up and questions",5]];
+var TOTAL_MS=SECTIONS.reduce(function(a,s){return a+s[1]*60000},0);
+function fmt(ms){var neg=ms<0,s=Math.ceil(Math.abs(ms)/1000);if(neg)s=Math.floor(Math.abs(ms)/1000);var m=Math.floor(s/60),r=s%60;return (neg?"+":"")+m+":"+(r<10?"0":"")+r}
+function secColor(left){return left<=30000?"red":left<=60000?"yellow":""}
+function totColor(left){return left<=300000?"red":left<=600000?"yellow":""}
+function schedStart(i){var t=0;for(var k=0;k<i;k++)t+=SECTIONS[k][1]*60000;return t}
+function pace(elapsedMs,idx,secElapsedMs){var diff=elapsedMs-(schedStart(idx)+Math.min(secElapsedMs,SECTIONS[idx][1]*60000));var m=Math.round(diff/60000);if(m===0)return"On time";return Math.abs(m)+" min "+(m>0?"behind":"ahead")}
+if(typeof module!=="undefined"){module.exports={SECTIONS:SECTIONS,TOTAL_MS:TOTAL_MS,fmt:fmt,secColor:secColor,totColor:totColor,pace:pace,schedStart:schedStart}}
+else{
+var KEY="sessionTimer.v1",st=load();
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||null}catch(e){return null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
+// st: {started, paused, pausedAt, pausedTotal (ms), idx, secStart, secPaused}
+function now(){return Date.now()}
+function elapsedTotal(){var t=(st.paused?st.pausedAt:now())-st.started-st.pausedTotal;return t}
+function elapsedSec(){return (st.paused?st.pausedAt:now())-st.secStart-st.secPaused}
+var $=function(id){return document.getElementById(id)};
+function render(){
+ if(!st){$("td").textContent=fmt(TOTAL_MS);$("sd").textContent=fmt(SECTIONS[0][1]*60000);$("name").textContent="1. "+SECTIONS[0][0];$("next").textContent="Up next: "+SECTIONS[1][0];$("pace").textContent="";$("total").className="panel";$("sec").className="panel";return}
+ var tl=TOTAL_MS-elapsedTotal(),se=elapsedSec(),sl=SECTIONS[st.idx][1]*60000-se;
+ $("td").textContent=fmt(tl);$("total").className="panel "+totColor(tl);
+ $("sd").textContent=fmt(sl);$("sec").className="panel "+secColor(sl);
+ $("name").textContent=(st.idx+1)+". "+SECTIONS[st.idx][0];
+ $("next").textContent=st.idx<SECTIONS.length-1?"Up next: "+SECTIONS[st.idx+1][0]:"Last section";
+ $("pace").textContent=(st.paused?"Paused · ":"")+pace(elapsedTotal(),st.idx,se);
+ $("pause").textContent=st.paused?"Resume":"Pause";
+ $("nextb").textContent=st.idx<SECTIONS.length-1?"Next":"—";
+}
+function ui(){var on=!!st;$("start").classList.toggle("hide",on);["back","pause","nextb","reset"].forEach(function(i){$(i).classList.toggle("hide",!on)})}
+function start(){var t=now();st={started:t,paused:false,pausedAt:0,pausedTotal:0,idx:0,secStart:t,secPaused:0};save();ui();awake(true);render()}
+function go(d){var n=st.idx+d;if(n<0||n>=SECTIONS.length)return;var t=st.paused?st.pausedAt:now();st.idx=n;st.secStart=t;st.secPaused=0;save();render()}
+function togglePause(){var t=now();if(st.paused){var d=t-st.pausedAt;st.pausedTotal+=d;st.secPaused+=d;st.paused=false;awake(true)}else{st.paused=true;st.pausedAt=t}save();render()}
+$("start").onclick=start;$("nextb").onclick=function(){go(1)};$("back").onclick=function(){go(-1)};$("pause").onclick=togglePause;
+$("reset").onclick=function(){if(confirm("Reset the whole session?")){st=null;localStorage.removeItem(KEY);ui();awake(false);render()}};
+// Wake lock + silent video fallback
+var lock=null,vid=null;
+function makeVid(){vid=document.createElement("video");vid.setAttribute("playsinline","");vid.setAttribute("muted","");vid.muted=true;vid.loop=true;vid.setAttribute("title","");vid.style.cssText="position:fixed;width:1px;height:1px;opacity:0.01;left:0;top:0;pointer-events:none";
+ // tiny silent MP4 (no audio track) generated on the fly via canvas stream where available
+ try{var c=document.createElement("canvas");c.width=2;c.height=2;var x=c.getContext("2d");setInterval(function(){x.fillStyle=Math.random()<.5?"#000":"#010101";x.fillRect(0,0,2,2)},1000);if(c.captureStream){vid.srcObject=c.captureStream(1)}}catch(e){}
+ document.body.appendChild(vid)}
+function awake(on){
+ if(on){
+  if("wakeLock" in navigator){navigator.wakeLock.request("screen").then(function(l){lock=l;l.addEventListener("release",function(){lock=null})}).catch(function(){fallback()})}else fallback();
+ }else{if(lock){lock.release();lock=null}if(vid)vid.pause()}
+}
+function fallback(){if(!vid)makeVid();var p=vid.play();if(p&&p.catch)p.catch(function(){})}
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"){render();if(st&&!st.paused&&!lock)awake(true)}});
+document.addEventListener("touchend",function(){if(st&&!lock&&vid&&vid.paused)fallback()},{passive:true});
+ui();render();setInterval(render,250);
+if(st)document.addEventListener("click",function f(){awake(true);document.removeEventListener("click",f)});
+}
+</script></body></html>
